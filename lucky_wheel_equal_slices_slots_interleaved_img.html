@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vòng quay may mắn</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+      * { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial; }
+      body {
+        height: 100vh;
+        background: linear-gradient(to right, #1A1A2E, #16213E, #0F3460);
+        color: white; display: flex; flex-direction: column;
+      }
+      .title { text-align: center; }
+      h1, h3 { margin-top: 1rem; }
+
+      .wheel {
+        background: linear-gradient(to right, #2D3748, #1A202C);
+        margin: 1rem; padding: 1rem; border-radius: 10px;
+        border: 1px solid #4A5568; box-shadow: 0 0 10px #4A5568;
+        max-width: 860px; width: calc(100% - 2rem); align-self: center;
+      }
+      .header {
+        background: linear-gradient(to right, #667EEA, #764BA2);
+        border-radius: 10px; padding: 0.5rem;
+        display:flex; justify-content:center; align-items:center; gap: 8px;
+      }
+      .header h2 { margin: 0; line-height: 1.2; }
+
+      .wheel-body { display: flex; justify-content: center; align-items: center; margin-top: 2rem; position: relative; }
+      #spin-btn {
+        position: absolute; width: 86px; height: 86px; border-radius: 50%;
+        background: linear-gradient(to left, #FFD700, #f5ae33); color: white; font-weight: bold; font-size: 1.1rem;
+        border: 4px solid #ffd500; cursor: pointer; z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      }
+      #spin-btn:active { transform: scale(0.95); }
+      #lucky-wheel { transition: transform 5s ease-out; }
+
+      #toast-container { position: fixed; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 10px; z-index: 9999; }
+      .toast {
+        min-width: 280px; max-width: 360px; background: #f87171; border: 1px solid #4a5568; color: #fff;
+        border-radius: 10px; padding: 10px 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+        display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; animation: slideIn 250ms ease-out;
+      }
+      .toast.success { border-color: #16a34a; background-color: #34d399; box-shadow: 0 10px 20px rgba(22,163,74,0.25); }
+      .toast.error   { border-color: #ef4444; background-color: #f87171; box-shadow: 0 10px 20px rgba(239,68,68,0.25); }
+      .toast.info    { border-color: #60a5fa; background-color: #2d3748; box-shadow: 0 10px 20px rgba(96,165,250,0.25); }
+      .toast .icon { font-size: 18px; opacity: 0.95; }
+      .toast.success .icon, .toast.error .icon { color: #2d3748; }
+      .toast.info .icon { color: #93c5fd; }
+      .toast .msg { font-size: 14px; line-height: 1.35; }
+      @keyframes slideIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+
+      .pointer { position: absolute; top: -28px; left: 50%; transform: translateX(-50%); width: 46px; height: 58px; z-index: 20; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); animation: pointerFloat 2.4s ease-in-out infinite; }
+      .pointer svg { transform: rotate(180deg); display: block; }
+      @keyframes pointerFloat { 0% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(2px); } 100% { transform: translateX(-50%) translateY(0); } }
+      .pointer.spinning { animation: none; filter: drop-shadow(0 0 10px rgba(255,215,0,.45)); }
+
+      label.mute { position:absolute; bottom:-36px; right:0; font-size:12px; display:flex; align-items:center; gap:6px; }
+      /* Modal */
+      #modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); z-index: 100;}
+      .modal-content { background: linear-gradient(to right, #2D3748, #1A202C); margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; min-height: 260px; overflow-y: auto;}
+      #info { display: flex; flex-direction: column; align-items: center; gap: 10px;}
+      #info h3 { font-size: 2rem; margin: 10px 0; }
+    </style>
+  </head>
+  <body>
+    <div id="modal">
+      <div class="modal-content">
+        <div id="info"></div>
+      </div>
+    </div>
+    <div id="toast-container" aria-live="polite"></div>
+    <div class="title">
+      <h1>Vòng quay may mắn</h1>
+      <h3>Chào mừng bạn đến với vòng quay may mắn của <span style="color: #FFE100;">Nhà Phân Phối Tiến Tài</span>!</h3>
+    </div>
+
+    <div class="wheel">
+      <div class="header"><h2>Vòng quay may mắn</h2></div>
+      <div class="wheel-body">
+        <div class="pointer" aria-hidden="true">
+          <svg width="46" height="58" viewBox="0 0 46 58" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FFE27A"/><stop offset="55%" stop-color="#FFC300"/><stop offset="100%" stop-color="#B58100"/>
+              </linearGradient>
+              <linearGradient id="shineGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.9)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+              </linearGradient>
+            </defs>
+            <path d="M23 2 L42 32 C42.7 33.1 42 34.6 40.7 34.6 H31.5 L31.5 47.5 C31.5 49.4 30 51 28.1 51 H17.9 C16 51 14.5 49.4 14.5 47.5 V34.6 H5.3 C4 34.6 3.3 33.1 4 32 L23 2 Z"
+                  fill="url(#goldGrad)" stroke="#7A4C00" stroke-width="2"/>
+            <path d="M23 6 L37 30 H30 C28 23 22 13 16 10 L23 6 Z" fill="url(#shineGrad)" opacity="0.45"/>
+            <circle cx="16" cy="45" r="2.2" fill="#E6C56F" stroke="#7A4C00" stroke-width="1"/>
+            <circle cx="30" cy="45" r="2.2" fill="#E6C56F" stroke="#7A4C00" stroke-width="1"/>
+          </svg>
+        </div>
+        <canvas id="lucky-wheel" width="520" height="520"></canvas>
+        <button id="spin-btn">Quay</button>
+        <label class="mute"><input type="checkbox" id="mute-audio"> Tắt âm</label>
+      </div>
+    </div>
+
+    <script>
+      /* ---------- Modal ---------- */
+      function showModal(gifts, img, height, width){ 
+        document.getElementById('modal').style.display = 'block'; 
+        document.getElementById('info').innerHTML = `<h2>Chúc mừng bạn đã trúng thưởng !!!</h2>
+        <h3 style="color: #FFE100;">${gifts.label}</h3>
+        <img src="${img}" alt="" width="${width}px" height="${height}px">`;
+      }
+      
+      /* ---------- Toast ---------- */
+      function showToast(message, type = 'success', duration = 3000) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div'); toast.className = `toast ${type}`;
+        const iconClass = type === 'error' ? 'fa-circle-xmark' : type === 'info' ? 'fa-circle-info' : 'fa-circle-check';
+        toast.innerHTML = `<i class="icon fa-solid ${iconClass}"></i><div class="msg">${message}</div><div></div>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(12px)'; setTimeout(() => toast.remove(), 150); }, duration);
+      }
+
+      /* ---------- Audio ---------- */
+      let audioCtx = null, globalMuted = false;
+      function ensureAudioCtx(){ if(!audioCtx){ const AC = window.AudioContext || window.webkitAudioContext; audioCtx = new AC(); } if(audioCtx.state==='suspended') audioCtx.resume(); }
+      function makeGain(val=0.2){ const g = audioCtx.createGain(); g.gain.value = val; g.connect(audioCtx.destination); return g; }
+      function beep({freq=800, duration=0.06, type='square', gain=0.15}={}){ if(globalMuted) return; ensureAudioCtx(); const now = audioCtx.currentTime; const osc = audioCtx.createOscillator(); const g = makeGain(gain); osc.type = type; osc.frequency.setValueAtTime(freq, now); osc.connect(g); g.gain.setValueAtTime(gain, now); g.gain.exponentialRampToValueAtTime(0.0001, now + duration); osc.start(now); osc.stop(now + duration + 0.02); }
+      function jingleWin(){ if(globalMuted) return; ensureAudioCtx(); const now = audioCtx.currentTime; const notes=[523.25,659.25,783.99,1046.5]; notes.forEach((f,i)=>{ const start=now+i*0.12; const o=audioCtx.createOscillator(); const g=makeGain(0.10); o.type='triangle'; o.frequency.setValueAtTime(f,start); g.gain.setValueAtTime(0.10,start); g.gain.exponentialRampToValueAtTime(0.0001,start+0.18); o.connect(g); o.start(start); o.stop(start+0.22); }); }
+
+      /* ---------- Canvas HiDPI ---------- */
+      function setupHiDPICanvas(canvas, cssSize=520){
+        canvas.style.width = cssSize+'px'; canvas.style.height = cssSize+'px';
+        const ratio = window.devicePixelRatio || 1; canvas.width = Math.floor(cssSize*ratio); canvas.height = Math.floor(cssSize*ratio);
+        const ctx = canvas.getContext('2d'); ctx.setTransform(ratio,0,0,ratio,0,0); return { ctx, cssSize };
+      }
+      const canvas = document.getElementById('lucky-wheel');
+      const { ctx, cssSize } = setupHiDPICanvas(canvas);
+      let cx=cssSize/2, cy=cssSize/2, R=Math.min(cx,cy)-6;
+      const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+      const POINTER_ANGLE = -Math.PI/2;
+
+      /* ---------- Gifts cấu hình (màu & ảnh) ---------- */
+      // Thay 'img' bằng URL ảnh thực tế của bạn.
+      const gifts = [
+      { name: 'Thẻ 50k',        percentage: 25, slots: 5, color: '#DC143C', img: 'assets/50vnd.png' },
+      { name: 'Thẻ 100k',       percentage: 20, slots: 4, color: '#8FA31E', img: 'assets/100vnd.png' },
+      { name: 'Thẻ 200k',       percentage: 10, slots: 4, color: '#FFE100', img: 'assets/200vnd.png' },
+      { name: 'Thẻ 500k',       percentage:  5, slots: 2, color: '#0046FF', img: 'assets/500vnd.png' },
+      { name: 'iPhone 16 PM',   percentage:  0, slots: 1, color: '#3338A0', img: 'assets/IPhone16.png' },
+      { name: 'May mắn lần sau',percentage: 40, slots: 5, color: '#556B2F', img: 'assets/clover.png' }
+      ];
+      /* ---------- Load ảnh mỗi quà (cache) ---------- */
+      const imgCache = new Map();
+      let imagesLoaded = 0;
+      const totalToLoad = gifts.length;
+      gifts.forEach((g, gi)=>{
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = ()=>{ imgCache.set(gi, img); imagesLoaded++; drawWheel(); };
+        img.onerror = ()=>{ imgCache.set(gi, null); imagesLoaded++; drawWheel(); };
+        img.src = g.img;
+      });
+
+      /* ---------- Xây lát xen kẽ từ slots (giữ không liền nhau) ---------- */
+      function buildInterleavedSlots(gifts){
+        const counts = gifts.map((g, gi) => ({ gi, name: g.name, remaining: Math.max(1, Math.floor(g.slots||1)) }));
+        const total = counts.reduce((s,x)=>s+x.remaining, 0);
+        const result = [];
+        let last = -1;
+
+        for(let k=0;k<total;k++){
+          counts.sort((a,b)=> b.remaining - a.remaining);
+          let pickIdx = -1;
+          for(let i=0;i<counts.length;i++){
+            if(counts[i].remaining > 0 && counts[i].gi !== last){ pickIdx = i; break; }
+          }
+          if(pickIdx === -1){
+            for(let i=0;i<counts.length;i++){ if(counts[i].remaining > 0){ pickIdx = i; break; } }
+          }
+          const pick = counts[pickIdx];
+          result.push({ giftIndex: pick.gi, label: pick.name });
+          pick.remaining -= 1;
+          last = pick.gi;
+        }
+
+        // Sửa vòng đầu-cuối nếu trùng nhau
+        if(result.length > 1 && result[0].giftIndex === result[result.length-1].giftIndex){
+          for(let j=result.length-2; j>=1; j--){
+            const prev = result[j-1].giftIndex;
+            const curr = result[j].giftIndex;
+            if(curr !== result[0].giftIndex && prev !== result[result.length-1].giftIndex){
+              const tmp = result[j]; result[j] = result[result.length-1]; result[result.length-1] = tmp; break;
+            }
+          }
+        }
+        return result;
+      }
+
+      let visualSlots = buildInterleavedSlots(gifts);
+
+      /* ---------- MỖI LÁT là một "mục trúng" có weight riêng ---------- */
+      let spinSlots = [];
+      function buildSpinSlots(gifts, visualSlots) {
+        const perGiftSlotCount = {};
+        gifts.forEach((g, i) => perGiftSlotCount[i] = Math.max(1, Math.floor(g.slots||1)));
+
+        return visualSlots.map(vs => {
+          const g = gifts[vs.giftIndex];
+          const weight = (Math.max(0, Number(g.percentage)||0)) / perGiftSlotCount[vs.giftIndex]; // chia đều % theo số slot
+          return {
+            giftIndex: vs.giftIndex,
+            label: (vs.label ?? g.name ?? '(Không tên)'),
+            color: g.color || '#4F46E5',
+            imgKey: vs.giftIndex,
+            weight
+          };
+        });
+      }
+      spinSlots = buildSpinSlots(gifts, visualSlots);
+
+      function pickWinnerSlotIndex() {
+        const weights = spinSlots.map(s => Math.max(0, Number(s.weight)||0));
+        const sum = weights.reduce((a,b)=>a+b,0);
+        if (sum <= 0) return Math.floor(Math.random()*spinSlots.length);
+        let r = Math.random()*sum;
+        for (let i=0;i<weights.length;i++){ if (r < weights[i]) return i; r -= weights[i]; }
+        return spinSlots.length-1;
+      }
+
+      /* ---------- Vẽ bánh xe: clip nội dung trong lát + stroke chữ ---------- */
+      let rotation = 0;
+      function drawWheel(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        const n = visualSlots.length; if (!n) return;
+        const equalAngle = 2*Math.PI / n;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rotation);
+
+        let start = 0;
+        for (let i=0;i<n;i++){
+          const a = equalAngle, mid = start + a / 2;
+
+          // Lấy dữ liệu an toàn cho dù spinSlots chưa build
+          const vs = visualSlots[i];
+          const gi = vs.giftIndex;
+          const g  = gifts[gi] || {};
+
+          // Nếu spinSlots[i] chưa có, dùng fallback từ visualSlots/gifts
+          const slot = (spinSlots && spinSlots[i]) ? spinSlots[i] : {
+            giftIndex: gi,
+            label: (vs.label ?? g.name ?? '(Không tên)'),
+            color: g.color || '#4F46E5',
+            imgKey: gi,
+            weight: 0
+          };
+
+          // Vẽ lát
+          ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,R,start,start+a); ctx.closePath();
+          ctx.fillStyle = slot.color; ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2; ctx.stroke();
+
+          // --- Nội dung trong lát (XOAY trước rồi CLIP) ---
+          ctx.save();
+
+          // Xoay sao cho trục giữa lát trùng trục X
+          ctx.rotate(mid);
+
+          // XOAY trước rồi CLIP theo sector [-a/2, +a/2]
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, R, -a/2, +a/2);
+          ctx.closePath();
+          ctx.clip();
+
+          // Text
+          const label = (slot.label && String(slot.label).trim()) || '(Không tên)';
+          const textRadius = R - 18;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.font = 'bold 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial';
+          ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.fillStyle = '#fff';
+
+          const lines = wrapLines(ctx, label, R*0.42);
+          for (let li=0; li<lines.length; li++){
+            const x = textRadius - 40;                    // ✅ đặt chữ dọc theo bán kính (trục X dương)
+            const y = li - (lines.length-1)/2;  // căn giữa theo trục Y của lát
+            ctx.strokeText(lines[li], x, y);
+            ctx.fillText(lines[li],   x, y);
+          }
+
+          // Ảnh
+          // Ảnh (xoay ngang 90° so với trục bán kính)
+          const img = imgCache.get(slot.imgKey);
+          const imgRadius = R - 128;   // giữ như bạn đang dùng
+          const size = 40;             // giữ như bạn đang dùng
+
+          if (img) {
+            ctx.save();
+            // đưa gốc tọa độ ra vị trí đặt ảnh trên trục bán kính
+            ctx.translate(imgRadius, 0);
+
+            // vẽ ảnh tâm giữa tại gốc (sau translate)
+            ctx.drawImage(img, -size/2, -size/2, size, size);
+            ctx.restore();
+          } else {
+            ctx.beginPath(); ctx.arc(imgRadius, 0, 12, 0, Math.PI*2);
+            ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fill();
+          }
+
+          ctx.restore(); // rotate(mid)
+
+          start += a;
+        }
+
+        // Nắp giữa
+        ctx.beginPath(); ctx.arc(0,0,52,0,2*Math.PI); ctx.fillStyle='#111827'; ctx.fill();
+
+        ctx.restore();
+      }
+
+      // helper tách dòng (không vẽ trực tiếp)
+      function wrapLines(ctx, text, maxWidth){
+        const words = String(text).split(/\s+/);
+        let line = '', lines = [];
+        for (let w of words){
+          const test = line ? (line + ' ' + w) : w;
+          if (ctx.measureText(test).width > maxWidth && line){
+            lines.push(line); line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+        if (lines.length > 4){
+          const firstTwo = lines.slice(0,2);
+          const rest = lines.slice(2).join(' ');
+          let tail = rest;
+          while (ctx.measureText(tail + '…').width > maxWidth && tail.length > 0){
+            tail = tail.slice(0, -1);
+          }
+          lines = [...firstTwo, tail + '…'];
+        }
+        return lines;
+      }
+
+      /* ---------- Quay theo SLOT ---------- */
+      const spinBtn = document.getElementById('spin-btn');
+      const pointerEl = document.querySelector('.pointer');
+      const muteChk = document.getElementById('mute-audio');
+      if(muteChk) muteChk.addEventListener('change', ()=>{ globalMuted = muteChk.checked; if(!globalMuted){ try{ ensureAudioCtx(); }catch{} } });
+      let spinning=false; if(pointerEl) pointerEl.classList.remove('spinning');
+
+      function slotCenterAngle(slotIdx, n){ const a = 2*Math.PI / n; return (slotIdx + 0.5) * a; }
+
+      spinBtn.addEventListener('click', ()=>{
+        if(spinning) return;
+        if(!spinSlots.length){ showToast('Chưa có quà!', 'error'); return; }
+
+        ensureAudioCtx(); beep({freq:1000, duration:0.05});
+
+        const winnerSlotIdx = pickWinnerSlotIndex();
+        const n = spinSlots.length;
+        const centerAngle = slotCenterAngle(winnerSlotIdx, n);
+
+        const extraSpins = 10 * 2 * Math.PI;  // số vòng quay thêm
+        const duration = 15000;               // thời gian quay (ms)
+
+        rotation = ((rotation % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+        const target = rotation + ((POINTER_ANGLE - (rotation + centerAngle)) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI) + extraSpins;
+
+        const startTime = performance.now();
+        const rotationStart = rotation;
+        spinning = true; if(pointerEl) pointerEl.classList.add('spinning');
+
+        let prevRot = rotationStart, lastTime = startTime, tickAccum = 0;
+        const tick = (now)=>{
+          const t = Math.min(1, (now - startTime)/duration);
+          const eased = easeOutCubic(t);
+          const current = rotationStart + (target - rotationStart) * eased;
+          const dt = now - lastTime; lastTime = now;
+          rotation = current;
+
+          const angVel = Math.abs(rotation - prevRot); prevRot = rotation;
+          const tickInterval = 40 + Math.max(0, 220 - Math.min(220, angVel*1200));
+          tickAccum += dt; if(tickAccum >= tickInterval){ tickAccum = 0; beep({freq: 1200, duration: 0.025, type:'square', gain: 0.10}); }
+
+          drawWheel();
+          if(t < 1){ requestAnimationFrame(tick); }
+          else {
+            spinning=false; if(pointerEl) pointerEl.classList.remove('spinning');
+            rotation = ((rotation % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+            const won = spinSlots[winnerSlotIdx];
+            const mappingImg = {
+              0: ['assets/50vnd.png', 160, 240],
+              1: ['assets/100vnd.png', 160, 240],
+              2: ['assets/200vnd.png', 200, 240],
+              3: ['assets/500vnd.png', 200, 240],
+              4: ['assets/IPhone16.png', 200, 160],
+              5: ['assets/clover.png', 100, 100]
+            }
+            const gift_modal = mappingImg[won.giftIndex];
+    
+            showModal(won, gift_modal[0], gift_modal[1], gift_modal[2]);
+            jingleWin();
+          }
+        };
+        requestAnimationFrame(tick);
+      });
+      /* ---------- Rebuild khi bạn thay gifts lúc chạy ---------- */
+      function rebuildVisualInterleaved(){
+        visualSlots = buildInterleavedSlots(gifts);
+        spinSlots   = buildSpinSlots(gifts, visualSlots);
+      
+        drawWheel();
+      }
+      window.gifts = gifts;
+      window.rebuildVisualInterleaved = rebuildVisualInterleaved;
+
+      // Vẽ lần đầu
+      drawWheel();
+
+      /* -------------- Modal -------------- */
+      const modal = document.getElementById('modal');
+      modal.addEventListener('click', ()=>{ modal.style.display = 'none'; });
+    </script>
+  </body>
+</html>
